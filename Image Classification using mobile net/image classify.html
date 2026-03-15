@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>Image Classification using Mobile net</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+
+<style>
+
+body{
+font-family:Arial;
+background:linear-gradient(135deg,#4facfe,#00f2fe);
+margin:0;
+height:100vh;
+display:flex;
+justify-content:center;
+align-items:center;
+}
+
+.container{
+width:650px;
+background:white;
+border-radius:15px;
+padding:25px;
+box-shadow:0 10px 40px rgba(0,0,0,0.3);
+text-align:center;
+}
+
+h1{
+color:#333;
+}
+
+#dropArea{
+border:2px dashed #aaa;
+padding:20px;
+margin-top:10px;
+border-radius:10px;
+cursor:pointer;
+}
+
+#preview{
+width:300px;
+margin-top:15px;
+border-radius:10px;
+}
+
+video{
+width:300px;
+margin-top:15px;
+border-radius:10px;
+}
+
+button{
+padding:10px 20px;
+border:none;
+border-radius:6px;
+background:#4CAF50;
+color:white;
+cursor:pointer;
+margin:5px;
+}
+
+button:hover{
+background:#388E3C;
+}
+
+#results{
+margin-top:20px;
+text-align:left;
+}
+
+.bar{
+height:18px;
+background:#4CAF50;
+border-radius:5px;
+}
+
+.prediction{
+margin-bottom:8px;
+}
+
+.loader{
+border:4px solid #eee;
+border-top:4px solid #4CAF50;
+border-radius:50%;
+width:30px;
+height:30px;
+animation:spin 1s linear infinite;
+margin:auto;
+display:none;
+}
+
+@keyframes spin{
+0%{transform:rotate(0deg);}
+100%{transform:rotate(360deg);}
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>AI Image Classifier</h1>
+
+<input type="file" id="upload">
+
+<div id="dropArea">Drag & Drop Image Here</div>
+
+<br>
+
+<button onclick="startWebcam()">Start Webcam</button>
+<button onclick="capture()">Capture Image</button>
+
+<br>
+
+<video id="webcam" autoplay></video>
+
+<img id="preview">
+
+<div class="loader" id="loader"></div>
+
+<div id="results"></div>
+<div class="footer">
+Created by <b>Tanish Kesharwani</b> 🚀
+</div>
+
+</div>
+
+<script>
+
+let model;
+let webcam=document.getElementById("webcam");
+
+async function loadModel(){
+
+document.getElementById("results").innerHTML="Loading AI Model...";
+
+model=await mobilenet.load({version:2,alpha:1.0});
+
+document.getElementById("results").innerHTML="Model Ready";
+
+}
+
+loadModel();
+
+
+// upload image
+document.getElementById("upload").addEventListener("change",function(e){
+
+handleImage(e.target.files[0]);
+
+});
+
+
+// drag drop
+let drop=document.getElementById("dropArea");
+
+drop.addEventListener("dragover",e=>e.preventDefault());
+
+drop.addEventListener("drop",function(e){
+
+e.preventDefault();
+
+let file=e.dataTransfer.files[0];
+
+handleImage(file);
+
+});
+
+
+// handle image
+function handleImage(file){
+
+let img=document.getElementById("preview");
+
+img.src=URL.createObjectURL(file);
+
+img.onload=function(){
+
+classify(img);
+
+}
+
+}
+
+
+// webcam start
+async function startWebcam(){
+
+const stream=await navigator.mediaDevices.getUserMedia({video:true});
+
+webcam.srcObject=stream;
+
+}
+
+
+// capture from webcam
+function capture(){
+
+let canvas=document.createElement("canvas");
+
+canvas.width=webcam.videoWidth;
+canvas.height=webcam.videoHeight;
+
+let ctx=canvas.getContext("2d");
+
+ctx.drawImage(webcam,0,0);
+
+let img=document.getElementById("preview");
+
+img.src=canvas.toDataURL();
+
+img.onload=function(){
+
+classify(img);
+
+}
+
+}
+
+
+// classify image
+async function classify(img){
+
+document.getElementById("loader").style.display="block";
+
+const predictions=await model.classify(img,5);
+
+document.getElementById("loader").style.display="none";
+
+let html="";
+
+predictions.forEach(p=>{
+
+let percent=(p.probability*100).toFixed(2);
+
+html+=`
+<div class="prediction">
+<b>${p.className}</b> (${percent}%)
+<div style="background:#ddd;border-radius:5px;">
+<div class="bar" style="width:${percent}%"></div>
+</div>
+</div>
+`;
+
+});
+
+document.getElementById("results").innerHTML=html;
+
+}
+
+</script>
+
+</body>
+</html>
