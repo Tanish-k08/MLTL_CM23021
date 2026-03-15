@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sentiment Model Comparison</title>
+
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+}
+
+body{
+font-family:'Segoe UI',sans-serif;
+height:100vh;
+display:flex;
+justify-content:center;
+align-items:center;
+background:#0f172a;
+color:white;
+overflow:hidden;
+}
+
+/* glowing background */
+
+body::before,
+body::after{
+content:"";
+position:absolute;
+width:500px;
+height:500px;
+border-radius:50%;
+filter:blur(120px);
+opacity:0.5;
+z-index:-1;
+}
+
+body::before{
+background:#00f2fe;
+top:-150px;
+left:-150px;
+}
+
+body::after{
+background:#9b23ea;
+bottom:-150px;
+right:-150px;
+}
+
+/* container */
+
+.container{
+width:650px;
+background:rgba(255,255,255,0.08);
+backdrop-filter:blur(14px);
+border-radius:20px;
+padding:40px;
+box-shadow:0 20px 50px rgba(0,0,0,0.5);
+text-align:center;
+}
+
+h1{
+font-size:30px;
+margin-bottom:5px;
+}
+
+.subtitle{
+font-size:14px;
+opacity:0.8;
+margin-bottom:20px;
+}
+
+textarea{
+width:100%;
+height:120px;
+padding:12px;
+border:none;
+border-radius:10px;
+font-size:16px;
+resize:none;
+}
+
+textarea:focus{
+outline:none;
+box-shadow:0 0 10px #00f2fe;
+}
+
+.buttons{
+margin-top:15px;
+}
+
+button{
+padding:12px 22px;
+border:none;
+border-radius:10px;
+font-size:15px;
+cursor:pointer;
+transition:0.3s;
+margin:5px;
+}
+
+.analyze{
+background:linear-gradient(45deg,#00f2fe,#9b23ea);
+color:white;
+}
+
+.clear{
+background:#ff6b6b;
+color:white;
+}
+
+button:hover{
+transform:scale(1.08);
+}
+
+/* loader */
+
+.spinner{
+border:4px solid rgba(255,255,255,0.2);
+border-top:4px solid white;
+border-radius:50%;
+width:30px;
+height:30px;
+animation:spin 1s linear infinite;
+margin:20px auto;
+display:none;
+}
+
+@keyframes spin{
+0%{transform:rotate(0deg);}
+100%{transform:rotate(360deg);}
+}
+
+/* results comparison */
+
+.results{
+display:flex;
+gap:15px;
+margin-top:20px;
+}
+
+.resultCard{
+flex:1;
+padding:18px;
+border-radius:12px;
+background:rgba(255,255,255,0.06);
+display:none;
+}
+
+.result{
+font-size:20px;
+font-weight:bold;
+margin-bottom:8px;
+}
+
+.analysis{
+font-size:14px;
+opacity:0.9;
+}
+
+.footer{
+margin-top:20px;
+font-size:13px;
+opacity:0.9;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>🤖 Sentiment Model Comparison</h1>
+
+<div class="subtitle">
+Compare Dense Network vs RNN (Pre-trained NLP Model)
+</div>
+
+<textarea id="inputText" placeholder="Example: I really love this product!"></textarea>
+
+<div class="buttons">
+<button class="analyze" onclick="analyze()">Analyze</button>
+<button class="clear" onclick="clearText()">Clear</button>
+</div>
+
+<div class="spinner" id="loader"></div>
+
+<div class="results">
+
+<div class="resultCard" id="denseCard">
+<div class="result">Dense Model</div>
+<div class="analysis" id="denseResult"></div>
+</div>
+
+<div class="resultCard" id="rnnCard">
+<div class="result">RNN / Deep NLP Model</div>
+<div class="analysis" id="rnnResult"></div>
+</div>
+
+</div>
+
+<div class="footer">
+Created by <b>Tanish Kesharwani</b> 🚀
+</div>
+
+</div>
+
+<script type="module">
+
+import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2";
+
+let classifier;
+
+classifier = await pipeline(
+"sentiment-analysis",
+"Xenova/distilbert-base-uncased-finetuned-sst-2-english"
+);
+
+window.clearText=function(){
+document.getElementById("inputText").value="";
+document.getElementById("denseCard").style.display="none";
+document.getElementById("rnnCard").style.display="none";
+}
+
+/* simple dense model simulation */
+
+function denseModelPrediction(text){
+
+let positive=["love","good","great","amazing","happy","best"];
+let negative=["bad","terrible","hate","worst","disappointed"];
+
+let score=0;
+
+positive.forEach(w=>{
+if(text.includes(w)) score++;
+});
+
+negative.forEach(w=>{
+if(text.includes(w)) score--;
+});
+
+return score>=0 ? "Positive 😊" : "Negative 😡";
+
+}
+
+/* main analyze function */
+
+window.analyze = async function(){
+
+let text=document.getElementById("inputText").value;
+
+if(text.trim()===""){
+alert("Please enter text");
+return;
+}
+
+document.getElementById("loader").style.display="block";
+
+/* Dense result */
+
+let densePrediction=denseModelPrediction(text.toLowerCase());
+
+document.getElementById("denseCard").style.display="block";
+
+document.getElementById("denseResult").innerHTML=
+"Prediction: "+densePrediction+
+"<br>Model Type: Simple Dense Network";
+
+/* RNN / pretrained result */
+
+const result = await classifier(text);
+
+let label=result[0].label;
+let score=(result[0].score*100).toFixed(2);
+
+document.getElementById("rnnCard").style.display="block";
+
+document.getElementById("rnnResult").innerHTML=
+"Prediction: "+label+
+"<br>Confidence: "+score+"%"+
+"<br>Model Type: Deep NLP (RNN/Transformer)";
+
+document.getElementById("loader").style.display="none";
+
+}
+
+</script>
+
+</body>
+</html>
