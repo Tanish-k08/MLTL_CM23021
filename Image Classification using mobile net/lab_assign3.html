@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>AI Model Comparison</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/resnet"></script>
+
+<style>
+
+body{
+margin:0;
+font-family:Segoe UI;
+background:linear-gradient(135deg,#141E30,#243B55);
+color:white;
+display:flex;
+justify-content:center;
+align-items:center;
+min-height:100vh;
+}
+
+.container{
+width:1100px;
+background:rgba(255,255,255,0.08);
+backdrop-filter:blur(10px);
+border-radius:20px;
+padding:30px;
+box-shadow:0 20px 60px rgba(0,0,0,0.5);
+text-align:center;
+}
+
+h1{
+margin-bottom:5px;
+}
+
+.status{
+margin-bottom:15px;
+font-size:14px;
+color:#00f2fe;
+}
+
+.preview-area{
+margin-top:20px;
+display:grid;
+grid-template-columns:repeat(2,1fr);
+gap:25px;
+}
+
+.card{
+background:white;
+color:#333;
+border-radius:12px;
+padding:15px;
+box-shadow:0 10px 30px rgba(0,0,0,0.3);
+}
+
+.card img{
+width:100%;
+border-radius:10px;
+}
+
+.result{
+margin-top:10px;
+font-size:13px;
+text-align:left;
+}
+
+.model-title{
+font-weight:bold;
+margin-top:10px;
+color:#2c5364;
+}
+
+.bar-bg{
+background:#ddd;
+height:12px;
+border-radius:6px;
+margin-top:4px;
+}
+
+.bar{
+height:12px;
+border-radius:6px;
+background:linear-gradient(90deg,#00f2fe,#4facfe);
+}
+
+button{
+margin-top:20px;
+padding:12px 25px;
+border:none;
+border-radius:8px;
+background:#00f2fe;
+font-weight:bold;
+cursor:pointer;
+}
+
+button:hover{
+opacity:0.9;
+}
+
+.footer{
+margin-top:25px;
+font-size:14px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>AI Image Classification Comparison</h1>
+<p>MobileNet vs ResNet</p>
+
+<div class="status" id="status">Loading AI Models...</div>
+
+<input type="file" id="upload" multiple accept="image/*">
+
+<div class="preview-area" id="previewArea"></div>
+
+<button onclick="compareModels()">Compare Models</button>
+
+<div class="footer">
+Created by <b>Tanish Kesharwani</b> 🚀
+</div>
+
+</div>
+
+<script>
+
+let mobileNetModel;
+let resNetModel;
+let images=[];
+
+
+// Load both models
+async function loadModels(){
+
+document.getElementById("status").innerText="Loading MobileNet...";
+
+mobileNetModel = await mobilenet.load();
+
+document.getElementById("status").innerText="Loading ResNet...";
+
+resNetModel = await resnet.load();
+
+document.getElementById("status").innerText="Models Loaded Successfully";
+
+}
+
+loadModels();
+
+
+// Preview images
+document.getElementById("upload").addEventListener("change",function(e){
+
+let files=e.target.files;
+
+if(files.length>5){
+
+alert("Upload maximum 5 images");
+
+return;
+
+}
+
+let preview=document.getElementById("previewArea");
+
+preview.innerHTML="";
+
+images=[];
+
+for(let i=0;i<files.length;i++){
+
+let img=document.createElement("img");
+
+img.src=URL.createObjectURL(files[i]);
+
+let card=document.createElement("div");
+
+card.className="card";
+
+let result=document.createElement("div");
+
+result.className="result";
+
+result.id="res"+i;
+
+card.appendChild(img);
+card.appendChild(result);
+
+preview.appendChild(card);
+
+images.push(img);
+
+}
+
+});
+
+
+// Compare predictions
+async function compareModels(){
+
+if(!mobileNetModel || !resNetModel){
+
+alert("Models are still loading. Please wait.");
+
+return;
+
+}
+
+if(images.length==0){
+
+alert("Upload images first");
+
+return;
+
+}
+
+for(let i=0;i<images.length;i++){
+
+let mobilePred = await mobileNetModel.classify(images[i],3);
+
+let resnetPred = await resNetModel.classify(images[i],3);
+
+let html="<div class='model-title'>MobileNet</div>";
+
+mobilePred.forEach(p=>{
+
+let percent=(p.probability*100).toFixed(2);
+
+html+=`
+<div>${p.className} (${percent}%)
+<div class="bar-bg">
+<div class="bar" style="width:${percent}%"></div>
+</div>
+</div>
+`;
+
+});
+
+html+="<div class='model-title'>ResNet</div>";
+
+resnetPred.forEach(p=>{
+
+let percent=(p.probability*100).toFixed(2);
+
+html+=`
+<div>${p.className} (${percent}%)
+<div class="bar-bg">
+<div class="bar" style="width:${percent}%"></div>
+</div>
+</div>
+`;
+
+});
+
+document.getElementById("res"+i).innerHTML=html;
+
+}
+
+}
+
+</script>
+
+</body>
+</html>
