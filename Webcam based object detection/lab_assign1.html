@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>AI Object Detection Dashboard</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+
+<!-- Object Detection -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+
+<!-- Image Classification -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+
+<style>
+
+body{
+margin:0;
+font-family:Arial;
+background:#0f172a;
+color:white;
+display:flex;
+height:100vh;
+}
+
+.sidebar{
+width:260px;
+background:#020617;
+padding:20px;
+border-right:2px solid #1e293b;
+}
+
+.sidebar h2{
+color:#38bdf8;
+}
+
+.objectList{
+margin-top:20px;
+font-size:16px;
+line-height:28px;
+}
+
+.main{
+flex:1;
+display:flex;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+}
+
+.title{
+font-size:28px;
+margin-bottom:15px;
+color:#38bdf8;
+}
+
+#videoWrapper{
+position:relative;
+}
+
+video{
+width:640px;
+height:480px;
+border-radius:10px;
+border:3px solid #38bdf8;
+}
+
+canvas{
+position:absolute;
+top:0;
+left:0;
+}
+
+.controls{
+margin-top:15px;
+}
+
+button{
+padding:10px 25px;
+font-size:16px;
+border:none;
+border-radius:6px;
+cursor:pointer;
+background:#38bdf8;
+color:black;
+margin:5px;
+}
+
+button:hover{
+background:#0ea5e9;
+}
+
+.status{
+margin-top:10px;
+font-size:16px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+
+<h2>Detected Objects</h2>
+<div class="objectList" id="objectList">None</div>
+
+<div style="margin-top:20px;">
+<b>Classification:</b>
+<div id="classification">None</div>
+</div>
+
+<div style="margin-top:20px;">
+<b>FPS:</b> <span id="fps">0</span>
+</div>
+
+</div>
+
+
+<div class="main">
+
+<div class="title">🤖 AI Webcam Detection & Classification BY TANISH KESHARWANI</div>
+
+<div id="videoWrapper">
+<video id="webcam" autoplay playsinline></video>
+<canvas id="canvas"></canvas>
+</div>
+
+<div class="controls">
+<button onclick="startDetection()">Start</button>
+<button onclick="stopDetection()">Stop</button>
+</div>
+
+<div class="status" id="status">
+Status : Waiting
+</div>
+
+</div>
+
+
+<script>
+
+const video=document.getElementById("webcam");
+const canvas=document.getElementById("canvas");
+const ctx=canvas.getContext("2d");
+
+const status=document.getElementById("status");
+const objectList=document.getElementById("objectList");
+const fpsText=document.getElementById("fps");
+const classification=document.getElementById("classification");
+
+let detectionModel;
+let classificationModel;
+
+let detecting=false;
+let lastTime=performance.now();
+
+async function setupCamera(){
+
+const stream=await navigator.mediaDevices.getUserMedia({video:true});
+video.srcObject=stream;
+
+return new Promise(resolve=>{
+video.onloadedmetadata=()=>resolve();
+});
+
+}
+
+
+async function startDetection(){
+
+status.innerText="Loading AI Models...";
+
+detectionModel=await cocoSsd.load();
+classificationModel=await mobilenet.load();
+
+await setupCamera();
+
+canvas.width=video.videoWidth;
+canvas.height=video.videoHeight;
+
+detecting=true;
+
+status.innerText="Detecting & Classifying";
+
+detectFrame();
+
+}
+
+
+function stopDetection(){
+
+detecting=false;
+
+ctx.clearRect(0,0,canvas.width,canvas.height);
+
+status.innerText="Detection Stopped";
+
+objectList.innerText="None";
+classification.innerText="None";
+
+}
+
+
+async function detectFrame(){
+
+if(!detecting) return;
+
+/* Object Detection */
+const predictions=await detectionModel.detect(video);
+
+/* Image Classification */
+const results=await classificationModel.classify(video);
+
+/* FPS */
+const now=performance.now();
+const fps=Math.round(1000/(now-lastTime));
+lastTime=now;
+fpsText.innerText=fps;
+
+ctx.clearRect(0,0,canvas.width,canvas.height);
+
+let objects=[];
+
+predictions.forEach(pred=>{
+
+const [x,y,w,h]=pred.bbox;
+
+ctx.strokeStyle="#00ffea";
+ctx.lineWidth=3;
+
+ctx.strokeRect(x,y,w,h);
+
+ctx.fillStyle="#00ffea";
+ctx.font="18px Arial";
+
+ctx.fillText(
+pred.class+" "+Math.round(pred.score*100)+"%",
+x,
+y>10?y-5:10
+);
+
+objects.push(pred.class);
+
+});
+
+objectList.innerHTML=objects.length?objects.join("<br>"):"None";
+
+/* Show Top Classification */
+
+classification.innerHTML = results
+.slice(0,3)
+.map(r => r.className + " (" + (r.probability*100).toFixed(1) + "%)")
+.join("<br>");
+
+requestAnimationFrame(detectFrame);
+
+}
+
+</script>
+
+</body>
+</html>
