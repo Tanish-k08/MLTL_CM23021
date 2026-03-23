@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fruit Classifier - Tanish</title>
+
+    <!-- TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+
+    <!-- MobileNet -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+
+    <!-- KNN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/knn-classifier"></script>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1e1e2f, #3a3a5a);
+            color: #fff;
+            text-align: center;
+        }
+
+        .container {
+            width: 80%;
+            margin: auto;
+            padding: 20px;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+        }
+
+        .upload-box {
+            margin: 15px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        label {
+            display: inline-block;
+            padding: 12px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 10px;
+            transition: 0.3s;
+        }
+
+        .apple { background: #ff4d4d; }
+        .banana { background: #f1c40f; color: black; }
+        .orange { background: #ff8c00; }
+        .test { background: #00c6ff; }
+
+        label:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(255,255,255,0.5);
+        }
+
+        button {
+            margin: 15px;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 10px;
+            background: #00c6ff;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        img {
+            margin-top: 20px;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        #result {
+            margin-top: 20px;
+            font-size: 20px;
+        }
+
+        footer {
+            margin-top: 30px;
+            padding: 10px;
+            background: rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>🍎 Fruit Classifier (Transfer Learning)</h1>
+
+<div class="container">
+
+    <h3>📥 Upload Training Images</h3>
+
+    <div class="upload-box">
+        <label class="apple">
+            Upload Apple 🍎
+            <input type="file" id="appleInput" multiple>
+        </label>
+    </div>
+
+    <div class="upload-box">
+        <label class="banana">
+            Upload Banana 🍌
+            <input type="file" id="bananaInput" multiple>
+        </label>
+    </div>
+
+    <div class="upload-box">
+        <label class="orange">
+            Upload Orange 🍊
+            <input type="file" id="orangeInput" multiple>
+        </label>
+    </div>
+
+    <button onclick="trainModel()">🚀 Train Model</button>
+
+    <hr>
+
+    <h3>🧪 Test Image</h3>
+
+    <!-- NEW TEST BUTTON -->
+    <label class="test">
+        Upload Test Image 📷
+        <input type="file" id="testInput">
+    </label>
+
+    <br>
+    <img id="preview" width="250"/>
+
+    <div id="result">Prediction: ...</div>
+
+</div>
+
+<footer>Created by <b>Tanish</b></footer>
+
+<script>
+let net;
+const classifier = knnClassifier.create();
+
+// Load model
+async function loadModel() {
+    net = await mobilenet.load();
+}
+loadModel();
+
+// Convert image to tensor
+async function imageToTensor(file) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.src = URL.createObjectURL(file);
+        img.onload = () => resolve(tf.browser.fromPixels(img));
+    });
+}
+
+// Add training images
+async function addImages(files, label) {
+    for (let file of files) {
+        const tensor = await imageToTensor(file);
+        const activation = net.infer(tensor, true);
+        classifier.addExample(activation, label);
+        tensor.dispose();
+    }
+}
+
+// Train
+async function trainModel() {
+    await addImages(document.getElementById("appleInput").files, 0);
+    await addImages(document.getElementById("bananaInput").files, 1);
+    await addImages(document.getElementById("orangeInput").files, 2);
+    alert("Training Completed!");
+}
+
+// Test Prediction
+document.getElementById("testInput").addEventListener("change", async function(e) {
+    const file = e.target.files[0];
+    const img = document.getElementById("preview");
+
+    img.src = URL.createObjectURL(file);
+
+    img.onload = async () => {
+        const tensor = tf.browser.fromPixels(img);
+        const activation = net.infer(tensor, true);
+
+        const result = await classifier.predictClass(activation);
+
+        let labels = ["Apple 🍎","Banana 🍌","Orange 🍊"];
+
+        document.getElementById("result").innerHTML =
+            `Prediction: ${labels[result.label]}<br>
+             Confidence: ${(result.confidences[result.label]*100).toFixed(2)}%`;
+
+        tensor.dispose();
+    };
+});
+</script>
+
+</body>
+</html>
