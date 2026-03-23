@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Pose Detection Analysis Dashboard</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI';
+            background: linear-gradient(135deg, #0f2027, #2c5364);
+            color: white;
+            text-align: center;
+        }
+
+        h1 { margin: 10px; }
+
+        .dashboard {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .card {
+            background: rgba(0,0,0,0.6);
+            padding: 15px;
+            border-radius: 15px;
+            min-width: 250px;
+        }
+
+        video {
+            transform: scaleX(-1);
+            border-radius: 10px;
+        }
+
+        canvas {
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+
+        .container {
+            position: relative;
+        }
+
+        .big {
+            font-size: 24px;
+            color: #00ffcc;
+            font-weight: bold;
+        }
+
+        .footer {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>🤖 AI Pose Detection & Analysis Dashboard</h1>
+
+<p>📌 Tasks: Keypoint Detection | Skeleton | Squat Counter | Accuracy Comparison</p>
+
+<div class="dashboard">
+
+    <!-- Video -->
+    <div class="card">
+        <div class="container">
+            <video id="video" width="640" height="480" autoplay></video>
+            <canvas id="canvas" width="640" height="480"></canvas>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="card">
+        <h3>📊 Live Stats</h3>
+        <div>Posture:</div>
+        <div class="big" id="poseLabel">Detecting...</div>
+
+        <div>Squats:</div>
+        <div class="big" id="counter">0</div>
+    </div>
+
+    <!-- Accuracy Comparison -->
+    <div class="card">
+        <h3>⚖️ Accuracy Analysis</h3>
+
+        <div>👤 Single Pose:</div>
+        <div id="singleAcc">0%</div>
+
+        <div>👥 Multi Pose:</div>
+        <div id="multiAcc">0%</div>
+
+        <div>Detected Persons:</div>
+        <div id="personCount">0</div>
+    </div>
+
+</div>
+
+<div class="footer">🚀 Created by <b>Tanish</b></div>
+
+<script>
+let video = document.getElementById("video");
+let canvas = document.getElementById("canvas");
+let ctx = canvas.getContext("2d");
+
+let poseLabel = document.getElementById("poseLabel");
+let counterEl = document.getElementById("counter");
+let singleAccEl = document.getElementById("singleAcc");
+let multiAccEl = document.getElementById("multiAcc");
+let personCountEl = document.getElementById("personCount");
+
+let squatCount = 0;
+let stage = "up";
+
+let latestKeypoints = null;
+let frameCount = 0;
+
+// Camera
+async function setupCamera() {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    video.srcObject = stream;
+    return new Promise(res => video.onloadedmetadata = res);
+}
+
+// Draw
+function drawKeypoints(kp) {
+    kp.forEach(k => {
+        if (k.score > 0.4) {
+            ctx.beginPath();
+            ctx.arc(k.x, k.y, 5, 0, 2*Math.PI);
+            ctx.fillStyle = "yellow";
+            ctx.fill();
+        }
+    });
+}
+
+function drawSkeleton(kp) {
+    const pairs = [[5,7],[7,9],[6,8],[8,10],[5,6],[5,11],[6,12],[11,12]];
+    pairs.forEach(([i,j]) => {
+        if (kp[i].score>0.4 && kp[j].score>0.4) {
+            ctx.beginPath();
+            ctx.moveTo(kp[i].x, kp[i].y);
+            ctx.lineTo(kp[j].x, kp[j].y);
+            ctx.strokeStyle="lime";
+            ctx.stroke();
+        }
+    });
+}
+
+// Angle
+function angle(a,b,c){
+    let rad = Math.atan2(c.y-b.y,c.x-b.x)-Math.atan2(a.y-b.y,a.x-b.x);
+    let deg = Math.abs(rad*180/Math.PI);
+    return deg>180?360-deg:deg;
+}
+
+// Squat
+function detectSquat(kp){
+    let ang = angle(kp[11],kp[13],kp[15]);
+
+    if(ang<90){ stage="down"; poseLabel.innerText="⬇ Down"; }
+
+    if(ang>160 && stage==="down"){
+        stage="up";
+        squatCount++;
+        counterEl.innerText=squatCount;
+        poseLabel.innerText="⬆ Up";
+    }
+}
+
+// Accuracy calc
+function calcAccuracy(kp){
+    let valid = kp.filter(k=>k.score>0.5).length;
+    return Math.round((valid/kp.length)*100);
+}
+
+// Main
+async function main(){
+    await setupCamera();
+    video.play();
+
+    const singleDetector = await poseDetection.createDetector(
+        poseDetection.SupportedModels.MoveNet,
+        {modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING}
+    );
+
+    const multiDetector = await poseDetection.createDetector(
+        poseDetection.SupportedModels.MoveNet,
+        {modelType: poseDetection.movenet.modelType.MULTIPOSE_LIGHTNING}
+    );
+
+    async function loop(){
+        frameCount++;
+
+        if(frameCount%3===0){
+
+            // Single Pose
+            let single = await singleDetector.estimatePoses(video);
+
+            if(single.length>0){
+                latestKeypoints = single[0].keypoints;
+                detectSquat(latestKeypoints);
+                singleAccEl.innerText = calcAccuracy(latestKeypoints) + "%";
+            }
+
+            // Multi Pose
+            let multi = await multiDetector.estimatePoses(video);
+            personCountEl.innerText = multi.length;
+
+            if(multi.length>0){
+                multiAccEl.innerText = calcAccuracy(multi[0].keypoints) + "%";
+            }
+        }
+
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+
+        if(latestKeypoints){
+            drawKeypoints(latestKeypoints);
+            drawSkeleton(latestKeypoints);
+        }
+
+        requestAnimationFrame(loop);
+    }
+
+    loop();
+}
+
+main();
+</script>
+
+</body>
+</html>
