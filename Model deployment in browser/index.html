@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI Model Deployment</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+
+<style>
+body {
+    margin: 0;
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    text-align: center;
+}
+
+.header {
+    padding: 20px;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.card {
+    background: white;
+    color: black;
+    margin: 20px auto;
+    padding: 20px;
+    border-radius: 15px;
+    width: 80%;
+    max-width: 500px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    transition: transform 0.3s;
+}
+
+.card:hover {
+    transform: scale(1.05);
+}
+
+button {
+    padding: 10px 20px;
+    margin: 10px;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    color: white;
+    font-weight: bold;
+    background: linear-gradient(45deg, #ff6a00, #ee0979);
+    transition: 0.3s;
+}
+
+button:hover {
+    transform: scale(1.1);
+    background: linear-gradient(45deg, #36d1dc, #5b86e5);
+}
+
+input {
+    padding: 10px;
+    border-radius: 20px;
+    border: 1px solid #ccc;
+    width: 200px;
+    text-align: center;
+}
+
+#prediction-result {
+    font-size: 24px;
+    color: #ff0066;
+    margin-top: 10px;
+}
+
+.footer {
+    margin-top: 30px;
+    font-size: 16px;
+    opacity: 0.8;
+}
+
+/* Loader */
+.loader {
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid #ff0066;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    animation: spin 1s linear infinite;
+    margin: 10px auto;
+    display: none;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">🚀 Model Deployment in Browser </div>
+
+<!-- TRAIN -->
+<div class="card">
+    <h3>🎯 Train Model (One Time)</h3>
+    <button onclick="trainAndSave()">Train Model</button>
+    <p id="train-status"></p>
+    <div class="loader" id="loader"></div>
+</div>
+
+<!-- STATUS -->
+<div class="card">
+    <h3>⚡ Model Status</h3>
+    <p id="load-status">Checking model...</p>
+</div>
+
+<!-- PREDICT -->
+<div class="card">
+    <h3>🔮 Predict Output</h3>
+    <input type="number" id="userInput" placeholder="Enter number">
+    <br>
+    <button onclick="predict()">Predict</button>
+    <h2 id="prediction-result"></h2>
+</div>
+
+<div class="footer">✨ Created by Tanish ✨</div>
+
+<script>
+let model;
+
+// AUTO LOAD MODEL (FAST ⚡)
+window.onload = async () => {
+    const status = document.getElementById('load-status');
+
+    try {
+        model = await tf.loadLayersModel('localstorage://my-model');
+        status.innerText = "✅ Model Loaded Instantly!";
+    } catch {
+        status.innerText = "⚠️ No model found. Train first!";
+    }
+};
+
+// TRAIN & SAVE
+async function trainAndSave() {
+    const status = document.getElementById('train-status');
+    const loader = document.getElementById('loader');
+
+    loader.style.display = "block";
+    status.innerText = "⏳ Training...";
+
+    model = tf.sequential();
+    model.add(tf.layers.dense({units: 1, inputShape: [1]}));
+
+    model.compile({
+        loss: 'meanSquaredError',
+        optimizer: 'sgd'
+    });
+
+    const xs = tf.tensor2d([1,2,3,4], [4,1]);
+    const ys = tf.tensor2d([2,4,6,8], [4,1]);
+
+    await model.fit(xs, ys, {epochs: 50});
+
+    // SAVE LOCALLY (FAST LOAD NEXT TIME)
+    await model.save('localstorage://my-model');
+
+    loader.style.display = "none";
+    status.innerText = "✅ Model Trained & Saved!";
+}
+
+// PREDICT
+async function predict() {
+    const inputVal = document.getElementById('userInput').value;
+    const result = document.getElementById('prediction-result');
+
+    if (!model) {
+        alert("Train model first!");
+        return;
+    }
+
+    if (inputVal === "") {
+        alert("Enter a number!");
+        return;
+    }
+
+    const input = tf.tensor2d([parseFloat(inputVal)], [1,1]);
+    const prediction = model.predict(input);
+    const data = await prediction.data();
+
+    result.innerText = "✨ Prediction: " + data[0].toFixed(2);
+}
+</script>
+
+</body>
+</html>
